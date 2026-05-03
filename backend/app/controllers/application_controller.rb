@@ -24,12 +24,16 @@ class ApplicationController < ActionController::API
   private
 
   def set_csrf_cookie
-    cookies["CSRF-TOKEN"] = {
+    cookie = {
       value: form_authenticity_token,
       same_site: :lax,
-      secure: Rails.env.production?,
-      domain: Rails.env.production? ? ".lumireader.app" : nil
+      secure: Rails.env.production? && ENV.fetch("FORCE_SSL", "true") == "true"
     }
+    if Rails.env.production?
+      domain = ENV.fetch("CSRF_COOKIE_DOMAIN", ".lumireader.app").presence
+      cookie[:domain] = domain if domain
+    end
+    cookies["CSRF-TOKEN"] = cookie
   end
 
   def render_csrf_token_missing(exception)

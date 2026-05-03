@@ -25,6 +25,7 @@ services:
       ASSUME_SSL: "false"
       RAILS_HOST: "192.168.1.50:47291"
       SESSION_DOMAIN: ""
+      CSRF_COOKIE_DOMAIN: ""
       CABLE_ALLOWED_ORIGINS: "http://192.168.1.50:47291"
       FRONTEND_URL: "http://192.168.1.50:47291"
       SOLID_QUEUE_IN_PUMA: "true"
