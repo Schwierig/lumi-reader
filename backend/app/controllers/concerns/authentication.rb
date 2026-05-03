@@ -55,7 +55,7 @@ module Authentication
       cookies.signed.permanent[:session_id] = {
         value: session.id,
         httponly: true,
-        secure: Rails.env.production?,
+        secure: Rails.env.production? && ENV.fetch("FORCE_SSL", "true") == "true",
         same_site: :lax
       }
     end
