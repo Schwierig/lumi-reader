@@ -5,8 +5,13 @@ class V1::RegistrationsController < ApplicationController
     @user = User.new(sign_up_params)
 
     if @user.save
-      UserMailer.confirmation_email_v1(@user).deliver_later
-      render_success data: UserBlueprint.render_as_json(@user), message: "Registered successfully. Please check your email to confirm your account.", status: :created
+      if ENV["AUTO_CONFIRM_EMAIL"] == "true"
+        @user.confirm_email!
+        render_success data: UserBlueprint.render_as_json(@user), message: "Registered successfully.", status: :created
+      else
+        UserMailer.confirmation_email_v1(@user).deliver_later
+        render_success data: UserBlueprint.render_as_json(@user), message: "Registered successfully. Please check your email to confirm your account.", status: :created
+      end
     else
       render_error errors: @user.errors.full_messages
     end

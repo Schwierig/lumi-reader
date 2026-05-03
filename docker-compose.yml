@@ -31,6 +31,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${LUMI_PORT:-47291}}
       # Run Solid Queue inside Puma (single-machine deploy)
       SOLID_QUEUE_IN_PUMA: "true"
+      AUTO_CONFIRM_EMAIL: "true"
       RAILS_LOG_LEVEL: info
       PORT: "80"
     volumes:
