@@ -1,0 +1,53 @@
+# Self-hosted Lumi Reader (single port).
+#
+# 1. Copy `.env.example` -> `.env` and set SECRET_KEY_BASE.
+# 2. `docker compose up -d --build`
+# 3. Open http://<truenas-ip>:${LUMI_PORT}
+#
+# Frontend (nginx) reverse-proxies /v1, /csrf, /cable, /up, /rails to the
+# backend over the internal docker network. The browser only ever talks to
+# the frontend port — no CORS, no extra hostname needed.
+
+services:
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      RAILS_ENV: production
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      # Self-host: plain HTTP behind a single nginx, no SSL termination
+      FORCE_SSL: "false"
+      ASSUME_SSL: "false"
+      RAILS_HOST: ${RAILS_HOST:-localhost}
+      # Empty SESSION_DOMAIN => cookie scoped to the request host (works for IP)
+      SESSION_DOMAIN: ""
+      # nginx forwards the original Host header, so allow it for ActionCable
+      CABLE_ALLOWED_ORIGINS: ${CABLE_ALLOWED_ORIGINS:-http://localhost,http://localhost:${LUMI_PORT:-47291}}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${LUMI_PORT:-47291}}
+      # Run Solid Queue inside Puma (single-machine deploy)
+      SOLID_QUEUE_IN_PUMA: "true"
+      RAILS_LOG_LEVEL: info
+      PORT: "80"
+    volumes:
+      - lumi_storage:/rails/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${LUMI_PORT:-47291}:80"
+
+volumes:
+  lumi_storage:

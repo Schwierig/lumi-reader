@@ -1,0 +1,51 @@
+# Lumi Reader — TrueNAS Custom App compose.
+#
+# Designed to be pasted into TrueNAS SCALE: Apps -> Discover Apps -> Custom App
+# -> "Install via YAML". Pulls pre-built images from GHCR (published by the
+# `docker-publish.yml` GitHub Actions workflow on push to main).
+#
+# Before deploying:
+#   1. Replace OWNER/REPO below with your GitHub fork's owner/name (lowercase).
+#      Example: ghcr.io/jdoe/lumi-reader-backend:latest
+#      If your fork is private, also pull-secret the GHCR creds in TrueNAS.
+#   2. Set SECRET_KEY_BASE (openssl rand -hex 64).
+#   3. Set RAILS_HOST / CABLE_ALLOWED_ORIGINS / FRONTEND_URL to the address
+#      you'll actually browse from (TrueNAS IP + the LUMI_PORT below).
+
+services:
+  backend:
+    image: ghcr.io/OWNER/REPO-backend:latest
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      RAILS_ENV: production
+      SECRET_KEY_BASE: REPLACE_WITH_OPENSSL_RAND_HEX_64
+      FORCE_SSL: "false"
+      ASSUME_SSL: "false"
+      RAILS_HOST: "192.168.1.50:47291"
+      SESSION_DOMAIN: ""
+      CABLE_ALLOWED_ORIGINS: "http://192.168.1.50:47291"
+      FRONTEND_URL: "http://192.168.1.50:47291"
+      SOLID_QUEUE_IN_PUMA: "true"
+      RAILS_LOG_LEVEL: info
+      PORT: "80"
+    volumes:
+      - lumi_storage:/rails/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    image: ghcr.io/OWNER/REPO-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "47291:80"
+
+volumes:
+  lumi_storage:

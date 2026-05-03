@@ -17,10 +17,15 @@ module Backend
     config.autoload_lib(ignore: %w[assets tasks])
 
     if Rails.env.production?
-      config.session_store :cookie_store, key: "_lumi_session", domain: "lumireader.app"
+      session_domain = ENV.fetch("SESSION_DOMAIN", "lumireader.app").presence
+      session_opts = { key: "_lumi_session" }
+      session_opts[:domain] = session_domain if session_domain
+      config.session_store :cookie_store, **session_opts
 
       # Action Cable (Websockets)
-      config.action_cable.allowed_request_origins = [ "https://lumireader.app" ]
+      config.action_cable.allowed_request_origins =
+        ENV["CABLE_ALLOWED_ORIGINS"].to_s.split(",").map(&:strip).reject(&:empty?).presence ||
+        [ "https://lumireader.app" ]
     else
       config.session_store :cookie_store, key: "_lumi_session"
 
