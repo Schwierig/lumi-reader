@@ -6,6 +6,7 @@ class ApplicationController < ActionController::API
   include Authentication
 
   before_action :set_csrf_cookie
+  before_action :set_active_storage_url_options
   allow_unauthenticated_access only: %i[ csrf ]
 
   rescue_from ActionController::ParameterMissing,  with: :render_parameter_missing
@@ -22,6 +23,17 @@ class ApplicationController < ActionController::API
   end
 
   private
+
+  # Make Active Storage URLs (avatars, book attachments) use whichever host
+  # the request actually arrived on. Lets clients reach uploaded files
+  # regardless of how the user addresses the app (LAN IP, hostname, tunnel...).
+  def set_active_storage_url_options
+    ActiveStorage::Current.url_options = {
+      host: request.host,
+      port: request.optional_port,
+      protocol: request.protocol
+    }
+  end
 
   def set_csrf_cookie
     cookie = {

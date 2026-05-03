@@ -12,6 +12,7 @@ export function SyncBooks() {
     const authState = useAuthState()
     const user = createMemo(() => authState.user)
     const [inProgress, setInProgress] = createSignal(false)
+    const [batchProgress, setBatchProgress] = createSignal<{ current: number; total: number } | null>(null)
 
     useBeforeLeave((e: BeforeLeaveEventArgs) => {
         if (inProgress() && !e.defaultPrevented) {
@@ -155,6 +156,54 @@ export function SyncBooks() {
         setInProgress(false)
     }
 
+    const uploadAllHandler = async () => {
+        if (inProgress()) return
+
+        const queue = [...allBooks.localOnly]
+        if (queue.length === 0) return
+
+        setInProgress(true)
+        setBatchProgress({ current: 0, total: queue.length })
+
+        let failures = 0
+        for (let i = 0; i < queue.length; i++) {
+            const bookData = queue[i]
+            setBatchProgress({ current: i + 1, total: queue.length })
+
+            const fullBook = await LumiDb.getBookByUniqueId(bookData.uniqueId)
+            if (!fullBook) {
+                failures++
+                errorToast(`Skipped "${bookData.title}": local copy not found.`)
+                continue
+            }
+
+            const data = {
+                sections: fullBook.sections,
+                nav: fullBook.nav,
+                images: fullBook.images,
+                css: fullBook.css,
+            }
+
+            const res = await syncedBooksApi.upload(bookData, data, () => {})
+            if (res.error) {
+                failures++
+                errorToast(`Failed "${bookData.title}": ${res.error.message}`)
+                continue
+            }
+
+            const cloudBook = { ...bookData, syncStatus: "up-to-date" as const }
+            setAllBooks("cloud", (prev) => [...prev, cloudBook])
+            setAllBooks("localOnly", (prev) => prev.filter((b) => b.uniqueId !== cloudBook.uniqueId))
+        }
+
+        setBatchProgress(null)
+        setInProgress(false)
+
+        if (failures > 0) {
+            errorToast(`Upload finished with ${failures} failure${failures === 1 ? "" : "s"}.`)
+        }
+    }
+
     const downloadHandler = async (book: ApiUserBook, setProgress: (p: number) => void) => {
         if (inProgress()) return
 
@@ -279,9 +328,26 @@ export function SyncBooks() {
                                 <IconHardDrive class="mr-2" stroke-width={2} />
                                 Local Only Books
                             </h2>
-                            <span class="px-3 py-1 bg-base05 text-base01 rounded-full text-sm">
-                                {allBooks.localOnly.length} books
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <Show when={allBooks.localOnly.length > 0}>
+                                    <button
+                                        type="button"
+                                        class="px-3 py-1 rounded-full text-sm bg-base0D text-base01 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={inProgress()}
+                                        onClick={uploadAllHandler}
+                                    >
+                                        <Show
+                                            when={batchProgress()}
+                                            fallback={<>Upload all ({allBooks.localOnly.length})</>}
+                                        >
+                                            Uploading {batchProgress()!.current} / {batchProgress()!.total}…
+                                        </Show>
+                                    </button>
+                                </Show>
+                                <span class="px-3 py-1 bg-base05 text-base01 rounded-full text-sm">
+                                    {allBooks.localOnly.length} books
+                                </span>
+                            </div>
                         </div>
 
                         <ul class="bg-base01 rounded-lg shadow divide-y divide-base03">
